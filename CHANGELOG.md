@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-02-07
+
+### Added
+- Comprehensive README with badges, installation guide, and troubleshooting tips
+- Tips for handling entity aliases, automation triggers, and common issues
+- ClawHub installation badge and button
+
+### Changed
+- Restructured documentation for better readability
+- Added comparison table showing token/API efficiency vs traditional approach
+
 ## [1.0.1] - 2026-02-07
 
 ### Changed
