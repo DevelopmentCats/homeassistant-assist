@@ -13,30 +13,15 @@ metadata:
 
 # Home Assistant Assist
 
-Control smart home devices by passing natural language to Home Assistant's Assist (Conversation) API. This is the **preferred method** for smart home control — faster and more token-efficient than manually resolving entity IDs.
+Control smart home devices by passing natural language to Home Assistant's Assist (Conversation) API. **Fire and forget** — trust Assist to handle intent parsing, entity resolution, and execution.
 
 ## When to Use This Skill
 
-Use this skill when the user's intent is to **control or query any smart home device**. This includes anything integrated with Home Assistant — not just lights and switches, but any entity HA exposes.
-
-Examples:
-- "turn off the kitchen light"
-- "set thermostat to 72"
-- "close the garage door"
-- "start the vacuum"
-- "what's the temperature outside?"
-- "is the front door locked?"
-
-If it's in Home Assistant, this skill can control or query it.
-
-**Do NOT use this skill for:**
-- Complex automation creation/editing (use direct API or HA UI)
-- Detailed entity configuration
-- Installing integrations
+Use this skill when the user wants to **control or query any smart home device**. If it's in Home Assistant, Assist can handle it.
 
 ## How It Works
 
-Pass the user's natural language request directly to Home Assistant:
+Pass the user's request directly to Assist:
 
 ```bash
 curl -s -X POST "$HASS_SERVER/api/conversation/process" \
@@ -45,60 +30,34 @@ curl -s -X POST "$HASS_SERVER/api/conversation/process" \
   -d '{"text": "USER REQUEST HERE", "language": "en"}'
 ```
 
-Home Assistant's built-in NLU handles:
+**Trust Assist.** It handles:
 - Intent parsing
-- Entity name resolution (fuzzy matching, area awareness)
-- Service call execution
-- Response generation
+- Fuzzy entity name matching
+- Area-aware commands
+- Execution
+- Error responses
 
 ## Handling Responses
 
-### For Actions (`response_type: "action_done"`)
+**Just relay what Assist says.** The `response.speech.plain.speech` field contains the human-readable result.
 
-Check `data.success[]` and `data.failed[]` to confirm what happened:
+- `"Turned on the light"` → Success, tell the user
+- `"Sorry, I couldn't understand that"` → Assist couldn't parse it
+- `"Sorry, there are multiple devices called X"` → Ambiguous name
 
-```json
-{
-  "response_type": "action_done",
-  "data": {
-    "success": [{"name": "Kitchen Light", "id": "light.kitchen"}],
-    "failed": []
-  }
-}
-```
+**Don't over-interpret.** If Assist says it worked, it worked. Trust the response.
 
-Report based on the success/failed arrays, not just the `speech` field.
+## When Assist Returns an Error
 
-### For Queries (`response_type: "query_answer"`)
+Only if Assist returns an error (`response_type: "error"`), you can **suggest HA-side improvements**:
 
-**Parse `data.success[]` for robust answers** — don't rely solely on `speech`.
+| Error | Suggestion |
+|-------|------------|
+| `no_intent_match` | "HA didn't recognize that command" |
+| `no_valid_targets` | "Try checking the entity name in HA, or add an alias" |
+| Multiple devices | "There may be duplicate names — consider adding unique aliases in HA" |
 
-The `speech` field may be vague (e.g., "Lamp and Lamp" when two devices share a name). Instead, parse the entity data:
-
-```json
-{
-  "response_type": "query_answer",
-  "speech": {"plain": {"speech": "Lamp and Lamp"}},
-  "data": {
-    "success": [
-      {"name": "Lamp", "id": "light.livingroom_lamp"},
-      {"name": "Lamp", "id": "light.bedroom_lamp"}
-    ]
-  }
-}
-```
-
-From this, derive a better answer:
-> "The living room lamp and bedroom lamp are on."
-
-Extract location/context from entity IDs when friendly names are ambiguous.
-
-### For Errors (`response_type: "error"`)
-
-Check `data.code`:
-- `no_intent_match` — HA didn't understand the request
-- `no_valid_targets` — Entity/area doesn't exist
-- `failed_to_handle` — Unexpected error
+These are **suggestions for improving HA config**, not skill failures. The skill did its job — it passed the request to Assist.
 
 ## Setup
 
@@ -123,7 +82,7 @@ Generate a token: Home Assistant → Profile → Long-Lived Access Tokens → Cr
 POST /api/conversation/process
 ```
 
-**Note:** Use `/api/conversation/process`, NOT `/api/services/conversation/process`. The service endpoint doesn't return the full response.
+**Note:** Use `/api/conversation/process`, NOT `/api/services/conversation/process`.
 
 ### Request
 
@@ -144,33 +103,20 @@ POST /api/conversation/process
     },
     "response_type": "action_done",
     "data": {
-      "targets": [],
-      "success": [{"name": "Kitchen Light", "type": "entity", "id": "light.kitchen"}],
+      "success": [{"name": "Kitchen Light", "id": "light.kitchen"}],
       "failed": []
     }
-  },
-  "conversation_id": "...",
-  "continue_conversation": false
+  }
 }
 ```
 
-## Tips
+## Philosophy
 
-- **Natural names work**: Say "kitchen light" not "light.kitchen_light_1"
-- **Areas work**: "turn off the bedroom" affects all devices in that area
-- **Any device type**: If HA can control it, this API can too
-- **Parse entity IDs**: When names are ambiguous, extract context from the entity ID (e.g., `light.bedroom_lamp` → bedroom)
-
-## Why This Approach?
-
-| Approach | Tokens | Speed | Reliability |
-|----------|--------|-------|-------------|
-| Manual entity lookup + service calls | High | Slow | Depends on AI's HA knowledge |
-| **Assist API** | Low | Fast | Uses HA's built-in NLU |
-
-The Assist API leverages Home Assistant's understanding of your home — areas, device names, aliases, and entity relationships.
+- **Trust Assist** — It knows the user's HA setup better than we do
+- **Fire and forget** — Pass the request, relay the response
+- **Don't troubleshoot** — If something doesn't work, suggest HA config improvements
+- **Keep it simple** — One API call, natural language in, natural language out
 
 ## Links
 
 - [Home Assistant Conversation API Docs](https://developers.home-assistant.io/docs/intent_conversation_api/)
-- [Home Assistant REST API](https://developers.home-assistant.io/docs/api/rest/)

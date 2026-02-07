@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-02-07
+
+### Changed
+- Simplified skill philosophy: "fire and forget" — trust Assist to handle everything
+- Removed over-engineered response parsing guidance
+- Errors from Assist are now framed as HA config suggestions, not skill failures
+- Streamlined documentation
+
 ## [1.0.0] - 2026-02-07
 
 ### Added
