@@ -12,7 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release of Home Assistant Assist skill
 - Uses Home Assistant Conversation API (`/api/conversation/process`) for natural language control
-- Supports all HA-integrated devices: lights, switches, climate, covers, vacuums, litter robots, media players, etc.
-- Query support: "what lights are on?", "is the door locked?"
+- Supports any HA-integrated device (not just lights — anything HA exposes)
+- Query support with smart response parsing
+- Guidance on parsing `data.success[]` for robust answers when `speech` is ambiguous
 - Area-aware commands: "turn off the bedroom"
 - Token-efficient: passes natural language directly to HA instead of manual entity resolution
+
+### Notes
+- Use `/api/conversation/process`, NOT `/api/services/conversation/process` (service endpoint doesn't return full response)
+- For queries, parse entity IDs to derive context when friendly names are duplicated
