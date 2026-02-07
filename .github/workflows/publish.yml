@@ -1,0 +1,87 @@
+name: Publish to ClawHub
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install ClawHub CLI
+        run: npm install -g clawhub
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+
+      - name: Extract changelog for version
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          echo "Looking for changelog section: [$VERSION]"
+          
+          # Extract section between ## [VERSION] and next ## [ or end of file
+          CHANGELOG=$(awk -v ver="$VERSION" '
+            BEGIN { found=0 }
+            /^## \[Unreleased\]/ { next }
+            /^## \[/ {
+              if (found) { exit }
+              if (index($0, "[" ver "]")) { found=1; next }
+            }
+            found && /^[^#]/ { print }
+            found && /^### / { print }
+          ' CHANGELOG.md | sed '/^$/d' | head -50)
+          
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="Release v$VERSION"
+            echo "No changelog found, using default"
+          else
+            echo "Found changelog:"
+            echo "$CHANGELOG"
+          fi
+          
+          # Write to file to avoid escaping issues
+          echo "$CHANGELOG" > /tmp/changelog.txt
+
+      - name: Publish to ClawHub
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+        run: |
+          clawhub login --token "$CLAWHUB_TOKEN" --no-browser
+          CHANGELOG=$(cat /tmp/changelog.txt)
+          clawhub publish . \
+            --slug homeassistant-assist \
+            --name "Home Assistant Assist" \
+            --version "${{ steps.version.outputs.VERSION }}" \
+            --changelog "$CHANGELOG"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: /tmp/changelog.txt
+          generate_release_notes: false
+
+      - name: Summary
+        run: |
+          echo "## ✅ Published homeassistant-assist@${{ steps.version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**ClawHub:** https://clawhub.com/skills/homeassistant-assist" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Changelog" >> $GITHUB_STEP_SUMMARY
+          cat /tmp/changelog.txt >> $GITHUB_STEP_SUMMARY
