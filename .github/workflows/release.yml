@@ -18,8 +18,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check if CHANGELOG was modified
+        id: changelog_check
+        run: |
+          # Check if CHANGELOG.md was modified in this push
+          if git diff --name-only HEAD^ HEAD | grep -q '^CHANGELOG.md$'; then
+            echo "CHANGELOG.md was modified in this push"
+            echo "modified=true" >> $GITHUB_OUTPUT
+          else
+            echo "CHANGELOG.md was not modified, skipping release"
+            echo "modified=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Extract latest version from CHANGELOG
         id: version
+        if: steps.changelog_check.outputs.modified == 'true'
         run: |
           # Extract the first version after [Unreleased] (format: ## [X.Y.Z] - YYYY-MM-DD)
           VERSION=$(grep -oP '(?<=## \[)[0-9]+\.[0-9]+\.[0-9]+(?=\])' CHANGELOG.md | head -1)
@@ -36,7 +49,7 @@ jobs:
 
       - name: Get latest git tag
         id: latest_tag
-        if: steps.version.outputs.found == 'true'
+        if: steps.changelog_check.outputs.modified == 'true' && steps.version.outputs.found == 'true'
         run: |
           # Get the latest tag (sorted by version, strict vX.Y.Z format only)
           LATEST_TAG=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
@@ -54,7 +67,7 @@ jobs:
           fi
 
       - name: Validate version increment
-        if: steps.version.outputs.found == 'true' && steps.latest_tag.outputs.exists == 'true'
+        if: steps.changelog_check.outputs.modified == 'true' && steps.version.outputs.found == 'true' && steps.latest_tag.outputs.exists == 'true'
         run: |
           CHANGELOG_VERSION="${{ steps.version.outputs.version }}"
           LATEST_VERSION="${{ steps.latest_tag.outputs.version }}"
@@ -95,7 +108,7 @@ jobs:
 
       - name: Check if tag already exists
         id: tag_check
-        if: steps.version.outputs.found == 'true'
+        if: steps.changelog_check.outputs.modified == 'true' && steps.version.outputs.found == 'true'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           if git rev-parse "v$VERSION" >/dev/null 2>&1; then
@@ -108,7 +121,7 @@ jobs:
 
       - name: Extract changelog for version
         id: changelog
-        if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
+        if: steps.changelog_check.outputs.modified == 'true' && steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           echo "Looking for changelog section: [$VERSION]"
@@ -137,17 +150,17 @@ jobs:
           echo "$CHANGELOG" > /tmp/changelog.txt
 
       - name: Setup Node.js
-        if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
+        if: steps.changelog_check.outputs.modified == 'true' && steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
         uses: actions/setup-node@0a44ba7841725637a19e28fa30b79a866c81b0a6 # v4
         with:
           node-version: '20'
 
       - name: Install ClawHub CLI
-        if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
+        if: steps.changelog_check.outputs.modified == 'true' && steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
         run: npm install -g clawhub
 
       - name: Publish to ClawHub
-        if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
+        if: steps.changelog_check.outputs.modified == 'true' && steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
         env:
           CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
         run: |
@@ -160,7 +173,7 @@ jobs:
             --changelog "$CHANGELOG"
 
       - name: Create git tag
-        if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
+        if: steps.changelog_check.outputs.modified == 'true' && steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           git config user.name "github-actions[bot]"
@@ -169,7 +182,7 @@ jobs:
           git push origin "v$VERSION"
 
       - name: Create GitHub Release
-        if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
+        if: steps.changelog_check.outputs.modified == 'true' && steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
         uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef29c3e6d191 # v1
         with:
           tag_name: v${{ steps.version.outputs.version }}
@@ -177,7 +190,7 @@ jobs:
           generate_release_notes: false
 
       - name: Summary
-        if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
+        if: steps.changelog_check.outputs.modified == 'true' && steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
         run: |
           echo "## ✅ Published homeassistant-assist@${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -187,14 +200,20 @@ jobs:
           cat /tmp/changelog.txt >> $GITHUB_STEP_SUMMARY
 
       - name: Skip (tag exists)
-        if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'true'
+        if: steps.changelog_check.outputs.modified == 'true' && steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'true'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           echo "## ⏭️ Skipped" >> $GITHUB_STEP_SUMMARY
           echo "Tag v$VERSION already exists. No action needed." >> $GITHUB_STEP_SUMMARY
 
       - name: Skip (no version)
-        if: steps.version.outputs.found == 'false'
+        if: steps.changelog_check.outputs.modified == 'true' && steps.version.outputs.found == 'false'
         run: |
           echo "## ⏭️ Skipped" >> $GITHUB_STEP_SUMMARY
           echo "No versioned release found in CHANGELOG.md (only [Unreleased] section exists)." >> $GITHUB_STEP_SUMMARY
+
+      - name: Skip (no CHANGELOG change)
+        if: steps.changelog_check.outputs.modified == 'false'
+        run: |
+          echo "## ⏭️ Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "CHANGELOG.md was not modified in this push. No release needed." >> $GITHUB_STEP_SUMMARY
