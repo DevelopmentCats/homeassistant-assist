@@ -39,16 +39,16 @@ jobs:
             DIFF_RANGE="$BEFORE..$AFTER"
           fi
           
-          # Check if CHANGELOG.md was modified in this push
-          if ! git diff --name-only $DIFF_RANGE | grep -q '^CHANGELOG.md$'; then
-            echo "CHANGELOG.md was not modified, skipping release"
+          # Check if skill/CHANGELOG.md was modified in this push
+          if ! git diff --name-only $DIFF_RANGE | grep -q '^skill/CHANGELOG.md$'; then
+            echo "skill/CHANGELOG.md was not modified, skipping release"
             echo "should_release=false" >> "$GITHUB_OUTPUT"
             echo "new_version=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           
           # Check if a new version entry was added (## [X.Y.Z] - YYYY-MM-DD)
-          NEW_VERSION=$(git diff $DIFF_RANGE -- CHANGELOG.md | grep -oP '^\+## \[\K[0-9]+\.[0-9]+\.[0-9]+(?=\])' | head -1)
+          NEW_VERSION=$(git diff $DIFF_RANGE -- skill/CHANGELOG.md | grep -oP '^\+## \[\K[0-9]+\.[0-9]+\.[0-9]+(?=\])' | head -1)
           
           if [ -z "$NEW_VERSION" ]; then
             echo "CHANGELOG.md was modified but no new version entry added (likely Unreleased section update)"
@@ -89,10 +89,10 @@ jobs:
         id: version
         run: |
           # Extract the first version after [Unreleased] (format: ## [X.Y.Z] - YYYY-MM-DD)
-          VERSION=$(grep -oP '(?<=## \[)[0-9]+\.[0-9]+\.[0-9]+(?=\])' CHANGELOG.md | head -1)
+          VERSION=$(grep -oP '(?<=## \[)[0-9]+\.[0-9]+\.[0-9]+(?=\])' skill/CHANGELOG.md | head -1)
           
           if [ -z "$VERSION" ]; then
-            echo "No version found in CHANGELOG.md"
+            echo "No version found in skill/CHANGELOG.md"
             echo "found=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -190,7 +190,7 @@ jobs:
             }
             found && /^[^#]/ { print }
             found && /^### / { print }
-          ' CHANGELOG.md | sed '/^$/d' | head -50)
+          ' skill/CHANGELOG.md | sed '/^$/d' | head -50)
           
           if [ -z "$CHANGELOG" ]; then
             CHANGELOG="Release v$VERSION"
@@ -220,7 +220,7 @@ jobs:
         run: |
           clawhub login --token "$CLAWHUB_TOKEN" --no-browser
           CHANGELOG=$(cat /tmp/changelog.txt)
-          clawhub publish . \
+          clawhub publish ./skill \
             --slug homeassistant-assist \
             --name "Home Assistant Assist" \
             --version "${{ steps.version.outputs.version }}" \
