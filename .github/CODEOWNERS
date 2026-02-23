@@ -1,5 +1,0 @@
-# Code owners are automatically requested for review when someone opens a pull request.
-# More info: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
-
-# Default owner for everything in the repo
-* @DevelopmentCats
