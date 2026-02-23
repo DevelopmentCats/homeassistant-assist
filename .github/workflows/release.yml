@@ -38,8 +38,8 @@ jobs:
         id: latest_tag
         if: steps.version.outputs.found == 'true'
         run: |
-          # Get the latest tag (sorted by version)
-          LATEST_TAG=$(git tag -l 'v*' | sort -V | tail -1)
+          # Get the latest tag (sorted by version, strict vX.Y.Z format only)
+          LATEST_TAG=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
           
           if [ -z "$LATEST_TAG" ]; then
             echo "No existing tags found (first release)"
