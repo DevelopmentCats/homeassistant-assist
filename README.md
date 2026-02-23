@@ -6,7 +6,8 @@
 
 An [OpenClaw](https://github.com/openclaw/openclaw) skill for controlling Home Assistant smart home devices using the **Assist (Conversation) API**.
 
-> **Important:** This is an OpenClaw skill, not a HACS integration. It runs inside OpenClaw and communicates with your Home Assistant instance via its API.
+> [!IMPORTANT]
+> This is an OpenClaw skill, not a HACS integration. It runs inside OpenClaw and communicates with your Home Assistant instance via its API.
 
 ## Why This Skill?
 
