@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-02-23
+
+### Changed
+- Cleaned up README formatting for more professional appearance
+- Removed emojis from title and section headers
+- Improved table clarity: renamed "Traditional" to "Entity Lookup Method"
+- Enhanced note prominence: "Note:" → "Important:"
+- Consolidated benefits section to reduce redundancy
+
 ## [1.1.0] - 2026-02-07
 
 ### Added
