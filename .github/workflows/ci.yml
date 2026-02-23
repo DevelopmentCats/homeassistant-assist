@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  lint:
+    name: Lint and Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Markdown Linting
+        uses: DavidAnson/markdownlint-cli2-action@07035fd053f7be764496c0f8d8f9f41f98305101 # v22
+        with:
+          globs: '**/*.md'
+
+      - name: Link Checking
+        uses: tcort/github-action-markdown-link-check@e7c7a18363c842693fadde5d41a3bd3573a7a225 # v1.1.2
+        with:
+          use-quiet-mode: 'yes'
+          use-verbose-mode: 'no'
+          config-file: '.markdown-link-check.json'
+
+      - name: Changelog Validation
+        run: |
+          echo "Validating CHANGELOG.md..."
+          
+          # Check if CHANGELOG.md exists
+          if [ ! -f "CHANGELOG.md" ]; then
+            echo "❌ CHANGELOG.md not found"
+            exit 1
+          fi
+          
+          # Check if it has "Change Log" or "Changelog" header
+          if ! grep -qE '^# (Change Log|Changelog)' CHANGELOG.md; then
+            echo "❌ CHANGELOG.md must start with '# Change Log' or '# Changelog'"
+            exit 1
+          fi
+          
+          # Check if it has at least one versioned release (not just Unreleased)
+          if ! grep -qP '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md; then
+            echo "❌ CHANGELOG.md must have at least one versioned release (e.g., ## [1.0.0] - YYYY-MM-DD)"
+            exit 1
+          fi
+          
+          echo "✅ CHANGELOG.md is valid"
