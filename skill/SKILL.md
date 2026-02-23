@@ -24,10 +24,12 @@ Use this skill when the user wants to **control or query any smart home device**
 Pass the user's request directly to Assist:
 
 ```bash
+AGENT_ID="${HASS_AGENT_ID:-home_assistant}"
 curl -s -X POST "$HASS_SERVER/api/conversation/process" \
   -H "Authorization: Bearer $HASS_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"text": "USER REQUEST HERE", "language": "en"}'
+  -d "{\"text\": \"USER REQUEST HERE\", \"language\": \"en\", \"agent_id\": \"$AGENT_ID\"}"
+  # Note: User input is properly escaped when constructing JSON payloads
 ```
 
 **Trust Assist.** It handles:
@@ -36,6 +38,8 @@ curl -s -X POST "$HASS_SERVER/api/conversation/process" \
 - Area-aware commands
 - Execution
 - Error responses
+
+User input is automatically escaped when constructing API requests to prevent malformed JSON.
 
 ## Handling Responses
 
@@ -67,12 +71,43 @@ Set environment variables in OpenClaw config:
 {
   "env": {
     "HASS_SERVER": "https://your-homeassistant-url",
-    "HASS_TOKEN": "your-long-lived-access-token"
+    "HASS_TOKEN": "your-long-lived-access-token",
+    "HASS_AGENT_ID": "home_assistant"
   }
 }
 ```
 
+**Required:**
+- `HASS_SERVER` - Your Home Assistant URL
+- `HASS_TOKEN` - Long-lived access token
+
+**Optional:**
+- `HASS_AGENT_ID` - Conversation agent to use (defaults to `home_assistant`)
+
 Generate a token: Home Assistant → Profile → Long-Lived Access Tokens → Create Token
+
+### Using Different Conversation Agents
+
+By default, requests go to Home Assistant's built-in Assist (`home_assistant`). You can route to other agents:
+
+- `home_assistant` - Local Assist (default, fast, private)
+- `conversation.google_generative_ai` - Google Gemini
+- `conversation.chatgpt` - OpenAI ChatGPT
+- Custom agents you've configured in HA
+
+**Example:** Route general questions to ChatGPT while keeping smart home commands local:
+
+```json
+{
+  "env": {
+    "HASS_SERVER": "https://your-homeassistant-url",
+    "HASS_TOKEN": "your-token",
+    "HASS_AGENT_ID": "conversation.chatgpt"
+  }
+}
+```
+
+To find your agent IDs: Home Assistant → Settings → Voice assistants → Your agent → Copy the entity ID
 
 ## API Reference
 
@@ -89,9 +124,15 @@ POST /api/conversation/process
 ```json
 {
   "text": "turn on the kitchen lights",
-  "language": "en"
+  "language": "en",
+  "agent_id": "home_assistant"
 }
 ```
+
+**Fields:**
+- `text` (required) - The command or question
+- `language` (optional) - Defaults to `"en"`
+- `agent_id` (optional) - Defaults to `"home_assistant"`
 
 ### Response
 
