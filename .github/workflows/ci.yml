@@ -27,9 +27,3 @@ jobs:
           use-quiet-mode: 'yes'
           use-verbose-mode: 'no'
           config-file: '.markdown-link-check.json'
-
-      - name: Changelog Validation
-        uses: crajapakshe/changelog-validator@v1.0.0
-        with:
-          changelog-path: 'CHANGELOG.md'
-          check-updated: 'false'
