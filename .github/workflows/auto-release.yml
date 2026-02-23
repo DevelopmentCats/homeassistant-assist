@@ -1,0 +1,72 @@
+name: Auto Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  auto-tag:
+    name: Auto-create release tag from CHANGELOG
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract latest version from CHANGELOG
+        id: version
+        run: |
+          # Extract the first version after [Unreleased] (format: ## [X.Y.Z] - YYYY-MM-DD)
+          VERSION=$(grep -oP '(?<=## \[)[0-9]+\.[0-9]+\.[0-9]+(?=\])' CHANGELOG.md | head -1)
+          
+          if [ -z "$VERSION" ]; then
+            echo "No version found in CHANGELOG.md"
+            echo "found=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "Latest version in CHANGELOG: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "found=true" >> $GITHUB_OUTPUT
+
+      - name: Check if tag exists
+        id: tag_check
+        if: steps.version.outputs.found == 'true'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "Tag v$VERSION already exists"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Tag v$VERSION does not exist"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create tag
+        if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$VERSION" -m "Release v$VERSION"
+          git push origin "v$VERSION"
+          echo "## ✅ Created tag v$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "This will trigger the publish workflow automatically." >> $GITHUB_STEP_SUMMARY
+
+      - name: Skip (tag exists)
+        if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'true'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "## ⏭️ Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "Tag v$VERSION already exists. No action needed." >> $GITHUB_STEP_SUMMARY
+
+      - name: Skip (no version)
+        if: steps.version.outputs.found == 'false'
+        run: |
+          echo "## ⏭️ Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "No versioned release found in CHANGELOG.md (only [Unreleased] section exists)." >> $GITHUB_STEP_SUMMARY

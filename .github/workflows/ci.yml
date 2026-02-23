@@ -27,3 +27,27 @@ jobs:
           use-quiet-mode: 'yes'
           use-verbose-mode: 'no'
           config-file: '.markdown-link-check.json'
+
+      - name: Changelog Validation
+        run: |
+          echo "Validating CHANGELOG.md..."
+          
+          # Check if CHANGELOG.md exists
+          if [ ! -f "CHANGELOG.md" ]; then
+            echo "❌ CHANGELOG.md not found"
+            exit 1
+          fi
+          
+          # Check if it has "Change Log" or "Changelog" header
+          if ! grep -qE '^# (Change Log|Changelog)' CHANGELOG.md; then
+            echo "❌ CHANGELOG.md must start with '# Change Log' or '# Changelog'"
+            exit 1
+          fi
+          
+          # Check if it has at least one versioned release (not just Unreleased)
+          if ! grep -qP '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md; then
+            echo "❌ CHANGELOG.md must have at least one versioned release (e.g., ## [1.0.0] - YYYY-MM-DD)"
+            exit 1
+          fi
+          
+          echo "✅ CHANGELOG.md is valid"
