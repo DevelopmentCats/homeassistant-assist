@@ -1,4 +1,4 @@
-name: Auto Release
+name: Release
 
 on:
   push:
@@ -9,8 +9,8 @@ permissions:
   contents: write
 
 jobs:
-  auto-tag:
-    name: Auto-create release tag from CHANGELOG
+  release:
+    name: Auto-release from CHANGELOG
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -106,7 +106,60 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create and push tag
+      - name: Extract changelog for version
+        id: changelog
+        if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "Looking for changelog section: [$VERSION]"
+          
+          # Extract section between ## [VERSION] and next ## [ or end of file
+          CHANGELOG=$(awk -v ver="$VERSION" '
+            BEGIN { found=0 }
+            /^## \[Unreleased\]/ { next }
+            /^## \[/ {
+              if (found) { exit }
+              if (index($0, "[" ver "]")) { found=1; next }
+            }
+            found && /^[^#]/ { print }
+            found && /^### / { print }
+          ' CHANGELOG.md | sed '/^$/d' | head -50)
+          
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="Release v$VERSION"
+            echo "No changelog found, using default"
+          else
+            echo "Found changelog:"
+            echo "$CHANGELOG"
+          fi
+          
+          # Write to file to avoid escaping issues
+          echo "$CHANGELOG" > /tmp/changelog.txt
+
+      - name: Setup Node.js
+        if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
+        uses: actions/setup-node@0a44ba7841725637a19e28fa30b79a866c81b0a6 # v4
+        with:
+          node-version: '20'
+
+      - name: Install ClawHub CLI
+        if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
+        run: npm install -g clawhub
+
+      - name: Publish to ClawHub
+        if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+        run: |
+          clawhub login --token "$CLAWHUB_TOKEN" --no-browser
+          CHANGELOG=$(cat /tmp/changelog.txt)
+          clawhub publish . \
+            --slug homeassistant-assist \
+            --name "Home Assistant Assist" \
+            --version "${{ steps.version.outputs.version }}" \
+            --changelog "$CHANGELOG"
+
+      - name: Create git tag
         if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
@@ -114,8 +167,24 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "v$VERSION" -m "Release v$VERSION"
           git push origin "v$VERSION"
-          echo "## ✅ Created tag v$VERSION" >> $GITHUB_STEP_SUMMARY
-          echo "This will trigger the publish workflow automatically." >> $GITHUB_STEP_SUMMARY
+
+      - name: Create GitHub Release
+        if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
+        uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef29c3e6d191 # v1
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          body_path: /tmp/changelog.txt
+          generate_release_notes: false
+
+      - name: Summary
+        if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
+        run: |
+          echo "## ✅ Published homeassistant-assist@${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**ClawHub:** https://clawhub.com/skills/homeassistant-assist" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Changelog" >> $GITHUB_STEP_SUMMARY
+          cat /tmp/changelog.txt >> $GITHUB_STEP_SUMMARY
 
       - name: Skip (tag exists)
         if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'true'
