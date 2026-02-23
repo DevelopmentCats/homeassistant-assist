@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.1] - 2026-02-23
 
+### Added
+- CI workflow with markdown linting and link checking
+
 ### Changed
 - Cleaned up README formatting for more professional appearance
 - Removed emojis from title and section headers
