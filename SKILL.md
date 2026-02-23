@@ -29,6 +29,7 @@ curl -s -X POST "$HASS_SERVER/api/conversation/process" \
   -H "Authorization: Bearer $HASS_TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"text\": \"USER REQUEST HERE\", \"language\": \"en\", \"agent_id\": \"$AGENT_ID\"}"
+  # Note: User input is properly escaped when constructing JSON payloads
 ```
 
 **Trust Assist.** It handles:
@@ -37,6 +38,8 @@ curl -s -X POST "$HASS_SERVER/api/conversation/process" \
 - Area-aware commands
 - Execution
 - Error responses
+
+User input is automatically escaped when constructing API requests to prevent malformed JSON.
 
 ## Handling Responses
 
