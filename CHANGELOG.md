@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [1.2.0] - 2026-02-23
+
+### Added
+- Support for custom conversation agents via `HASS_AGENT_ID` environment variable
+- Documentation for using alternative agents (ChatGPT, Gemini, etc.)
+- API reference now documents the `agent_id` parameter
+
+### Changed
+- Default agent is now explicitly set to `home_assistant` (maintains backward compatibility)
+- Updated examples to show agent_id usage
+
 ## [1.1.1] - 2026-02-23
 
 ### Added

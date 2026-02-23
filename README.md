@@ -61,6 +61,28 @@ Add the following to your OpenClaw config (`~/.openclaw/openclaw.json`):
 }
 ```
 
+### Optional: Custom Conversation Agent
+
+By default, requests go to Home Assistant's built-in Assist. You can optionally specify a different conversation agent:
+
+```json
+{
+  "env": {
+    "HASS_SERVER": "https://your-homeassistant-url",
+    "HASS_TOKEN": "your-long-lived-access-token",
+    "HASS_AGENT_ID": "conversation.chatgpt"
+  }
+}
+```
+
+**Available agents:**
+- `home_assistant` - Built-in Assist (default, fast, local)
+- `conversation.google_generative_ai` - Google Gemini
+- `conversation.chatgpt` - OpenAI ChatGPT
+- Custom agents configured in your HA instance
+
+**To find your agent ID:** Home Assistant → Settings → Voice assistants → Select your agent → Copy the entity ID
+
 ### Getting Your Token
 
 1. Open Home Assistant
