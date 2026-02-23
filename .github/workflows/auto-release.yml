@@ -34,7 +34,66 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "found=true" >> $GITHUB_OUTPUT
 
-      - name: Check if tag exists
+      - name: Get latest git tag
+        id: latest_tag
+        if: steps.version.outputs.found == 'true'
+        run: |
+          # Get the latest tag (sorted by version)
+          LATEST_TAG=$(git tag -l 'v*' | sort -V | tail -1)
+          
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No existing tags found (first release)"
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "version=0.0.0" >> $GITHUB_OUTPUT
+          else
+            echo "Latest tag: $LATEST_TAG"
+            # Strip 'v' prefix
+            TAG_VERSION="${LATEST_TAG#v}"
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "version=$TAG_VERSION" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate version increment
+        if: steps.version.outputs.found == 'true' && steps.latest_tag.outputs.exists == 'true'
+        run: |
+          CHANGELOG_VERSION="${{ steps.version.outputs.version }}"
+          LATEST_VERSION="${{ steps.latest_tag.outputs.version }}"
+          
+          echo "Comparing: $LATEST_VERSION → $CHANGELOG_VERSION"
+          
+          # Parse version numbers
+          IFS='.' read -r LATEST_MAJOR LATEST_MINOR LATEST_PATCH <<< "$LATEST_VERSION"
+          IFS='.' read -r NEW_MAJOR NEW_MINOR NEW_PATCH <<< "$CHANGELOG_VERSION"
+          
+          # Check for backwards version
+          if [ "$NEW_MAJOR" -lt "$LATEST_MAJOR" ]; then
+            echo "❌ ERROR: Version goes backwards (major: $LATEST_MAJOR → $NEW_MAJOR)"
+            exit 1
+          elif [ "$NEW_MAJOR" -eq "$LATEST_MAJOR" ] && [ "$NEW_MINOR" -lt "$LATEST_MINOR" ]; then
+            echo "❌ ERROR: Version goes backwards (minor: $LATEST_MINOR → $NEW_MINOR)"
+            exit 1
+          elif [ "$NEW_MAJOR" -eq "$LATEST_MAJOR" ] && [ "$NEW_MINOR" -eq "$LATEST_MINOR" ] && [ "$NEW_PATCH" -le "$LATEST_PATCH" ]; then
+            echo "❌ ERROR: Version does not increment (patch: $LATEST_PATCH → $NEW_PATCH)"
+            exit 1
+          fi
+          
+          # Validate increment type
+          if [ "$NEW_MAJOR" -gt "$LATEST_MAJOR" ]; then
+            echo "✅ Valid major version bump: $LATEST_VERSION → $CHANGELOG_VERSION"
+          elif [ "$NEW_MINOR" -gt "$LATEST_MINOR" ]; then
+            echo "✅ Valid minor version bump: $LATEST_VERSION → $CHANGELOG_VERSION"
+          else
+            # Patch bump - check if we skipped versions
+            PATCH_DIFF=$((NEW_PATCH - LATEST_PATCH))
+            if [ "$PATCH_DIFF" -gt 1 ]; then
+              echo "⚠️  WARNING: Skipped patch versions ($LATEST_VERSION → $CHANGELOG_VERSION, skipped $((PATCH_DIFF - 1)) version(s))"
+              echo "This is allowed but unusual. Proceeding..."
+            else
+              echo "✅ Valid patch version bump: $LATEST_VERSION → $CHANGELOG_VERSION"
+            fi
+          fi
+
+      - name: Check if tag already exists
         id: tag_check
         if: steps.version.outputs.found == 'true'
         run: |
@@ -47,7 +106,7 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create tag
+      - name: Create and push tag
         if: steps.version.outputs.found == 'true' && steps.tag_check.outputs.exists == 'false'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
