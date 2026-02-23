@@ -1,4 +1,4 @@
-# Change Log
+# Changelog
 
 All notable changes to the Home Assistant Assist skill will be documented in this file.
 
