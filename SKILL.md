@@ -93,6 +93,7 @@ By default, requests go to Home Assistant's built-in Assist (`home_assistant`). 
 - Custom agents you've configured in HA
 
 **Example:** Route general questions to ChatGPT while keeping smart home commands local:
+
 ```json
 {
   "env": {
